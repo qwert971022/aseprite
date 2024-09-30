@@ -19,12 +19,12 @@
 19 submodules: 'recursive'
 20 - name: ccache
 21 uses: hendrikmuhs/ccache-action@v1
-22 if: runner.os == 'Linux'
+22 if: matrix.os == 'Linux'
 23 with:
 24 key: ${{ matrix.os }}-${{ matrix.enable_ui }}
 25 - uses: seanmiddleditch/gha-setup-ninja@master
 26 - uses: ilammy/msvc-dev-cmd@v1
-27 if: runner.os == 'Windows'
+27 if: matrix.os == 'Windows'
 28 - name: Install Dependencies
 29 shell: bash
 30 run: |
