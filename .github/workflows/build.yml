@@ -1,111 +1,63 @@
 name: build
-on: [push, pull_request]
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        build_type: [RelWithDebInfo, Debug]
-        ui: [gui, cli]
-        scripting: [lua, noscripts]
-        exclude:
-          - build_type: Debug
-            ui: gui
-          - build_type: RelWithDebInfo
-            ui: cli
-          - build_type: RelWithDebInfo
-            scripting: noscripts
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
-    - name: Install Dependencies
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y \
-          libpixman-1-dev libfreetype6-dev libharfbuzz-dev zlib1g-dev \
-          libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev
-    - name: Install Skia
-      if: ${{ matrix.ui == 'gui' }}
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Windows" ]] ; then
-          choco install wget -y --no-progress
-          wget https://github.com/aseprite/skia/releases/download/m102-861e4743af/Skia-Windows-Release-x64.zip
-          unzip Skia-Windows-Release-x64.zip -d skia
-        elif [[ "${{ runner.os }}" == "macOS" ]] ; then
-          wget https://github.com/aseprite/skia/releases/download/m102-861e4743af/Skia-macOS-Release-arm64.zip
-          unzip Skia-macOS-Release-arm64.zip -d skia
-        else
-          wget https://github.com/aseprite/skia/releases/download/m102-861e4743af/Skia-Linux-Release-x64-libstdc++.zip
-          unzip Skia-Linux-Release-x64-libstdc++.zip -d skia
-        fi
-    - name: ccache
-      uses: hendrikmuhs/ccache-action@v1
-      if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
-      with:
-        key: ${{ matrix.os }}-${{ matrix.ui }}-${{ matrix.scripting }}-${{ matrix.build_type }}
-    - uses: aseprite/get-ninja@main
-    - uses: ilammy/msvc-dev-cmd@v1
-      if: runner.os == 'Windows'
-    - name: Generating Makefiles
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Windows" ]] ; then
-          export enable_ccache=off
-        else
-          export enable_ccache=on
-        fi
-
-        if [[ "${{ matrix.ui }}" == "gui" ]] ; then
-          export laf_backend=skia
-        else
-          export laf_backend=none
-        fi
-
-        if [[ "${{ matrix.scripting }}" == "lua" ]] ; then
-          export enable_scripting=on
-        else
-          export enable_scripting=off
-        fi
-
-        if [[ "${{ runner.os }}" == "macOS" ]] ; then
-          export skia_arch=arm64
-        else
-          export skia_arch=x64
-        fi
-
-        cmake -S . -B build -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 \
-          -DENABLE_TESTS=ON \
-          -DENABLE_SCRIPTING=$enable_scripting \
-          -DENABLE_CCACHE=$enable_ccache \
-          -DLAF_BACKEND=$laf_backend \
-          -DSKIA_DIR=skia \
-          -DSKIA_LIBRARY_DIR=skia/out/Release-$skia_arch
-    - name: Compiling
-      shell: bash
-      run: |
-        cd build && ninja
-    - name: Running C++ Tests
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Linux" ]] ; then
-          export XVFB=xvfb-run
-        fi
-        cd build && $XVFB ctest --output-on-failure
-    - name: Running CLI Tests
-      if: ${{ matrix.scripting == 'lua' }}
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Linux" ]] ; then
-          export XVFB=xvfb-run
-        fi
-        export ASEPRITE=$PWD/build/bin/aseprite
-        cd tests
-        $XVFB bash run-tests.sh
+2 on: [push, pull_request]
+3 jobs:
+4 build:
+5 runs-on: ${{ matrix.os }}
+6 strategy:
+7 fail-fast: false
+8 matrix:
+9 os: [windows-latest]
+10 build_type: [Release]
+11 enable_ui: [on]
+12 include:
+13 - os: windows-latest
+14 build_type: Release
+15 enable_ui: on
+16 steps:
+17 - uses: actions/checkout@v3
+18 with:
+19 submodules: 'recursive'
+20 - name: ccache
+21 uses: hendrikmuhs/ccache-action@v1
+22 if: runner.os == 'Linux'
+23 with:
+24 key: ${{ matrix.os }}-${{ matrix.enable_ui }}
+25 - uses: seanmiddleditch/gha-setup-ninja@master
+26 - uses: ilammy/msvc-dev-cmd@v1
+27 if: runner.os == 'Windows'
+28 - name: Install Dependencies
+29 shell: bash
+30 run: |
+31 if [[ "${{ runner.os }}" == "Linux" ]] ; then
+32 sudo apt-get update -qq
+33 sudo apt-get install -y \
+34 libx11-dev libxcursor-dev libxi-dev
+35 fi
+36 - name: Generating Makefiles
+37 shell: bash
+38 run: |
+39 if [[ "${{ runner.os }}" == "Windows" ]] ; then
+40 export enable_ccache=off
+41 else
+42 export enable_ccache=on
+43 fi
+44 curl -L https://github.com/blueloveTH/aseprite/releases/download/v0.01/skia.zip --output skia.zip
+45 7z x skia.zip
+46 cmake -S . -B build -G Ninja \
+47 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+48 -DENABLE_UI=${{ matrix.enable_ui }} \
+49 -DENABLE_CCACHE=$enable_ccache \
+50 -DLAF_BACKEND=skia \
+51 -DSKIA_DIR=./skia \
+52 -DSKIA_LIBRARY_DIR=./skia/out/Release-x64 \
+53 -DSKIA_LIBRARY=./skia/out/Release-x64/skia.lib
+54 - name: Compiling
+55 shell: bash
+56 run: |
+57 cd build && ninja
+58 - uses: actions/upload-artifact@v3
+59 with:
+60 name: aseprite
+61 path: |
+62 D:/a/aseprite/aseprite/build/bin/data
+63 D:/a/aseprite/aseprite/build/bin/aseprite.exe
