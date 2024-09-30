@@ -28,8 +28,8 @@ name: build
 28 - name: Install Dependencies
 29 shell: bash
 30 run: |
-31 if [[ "${{ runner.os }}" == "Linux" ]] ; then
-32 sudo apt-get update -qq
+if [[ "${{ runner.os }}" == "Linux" ]] ; then
+sudo apt-get update -qq
 33 sudo apt-get install -y \
 34 libx11-dev libxcursor-dev libxi-dev
 35 fi
